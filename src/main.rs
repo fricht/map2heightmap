@@ -93,27 +93,7 @@ fn separate_regions(
 
     let mut n = 0;
 
-    // detect edges
-    for x in 0..image.width() {
-        for y in 0..image.height() {
-            // if pixel is not already clear, bucket here
-            let px = image.get_pixel(x, y).0[0];
-            if px != 0 {
-                n += 1;
-                let diag;
-                if px == 255 {
-                    diag = true;
-                    insides.push(n);
-                } else {
-                    diag = false;
-                    borders.push(n);
-                }
-                bucket_into(&mut image, (x, y), n, &mut height_data, diag);
-            }
-        }
-    }
-
-    // then detect insides
+    // detect regions
     for x in 0..image.width() {
         for y in 0..image.height() {
             // if pixel is not already clear, bucket here
