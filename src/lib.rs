@@ -16,6 +16,11 @@ pub struct ReliefLine {
     pub height: Option<i64>,
 }
 
+pub enum RelativeHeight {
+    Up,
+    Down,
+}
+
 impl ReliefLine {
     pub fn empty() -> Self {
         ReliefLine {
@@ -25,16 +30,26 @@ impl ReliefLine {
         }
     }
 
-    pub fn try_add_region(&mut self, d: u8) {
+    pub fn try_add_region(&mut self, d: u8) -> RelativeHeight {
         if let None = self.up_region {
             self.up_region = Some(d);
-            return;
+            return RelativeHeight::Up;
         }
         if let None = self.down_region {
             self.down_region = Some(d);
-            return;
+            return RelativeHeight::Down;
         }
         panic!("Tried to add a region to a line, but both are already set")
+    }
+
+    pub fn get_region_status(&self, region: u8) -> Option<RelativeHeight> {
+        if self.up_region == Some(region) {
+            Some(RelativeHeight::Up)
+        } else if self.down_region == Some(region) {
+            Some(RelativeHeight::Down)
+        } else {
+            None
+        }
     }
 }
 
@@ -185,14 +200,57 @@ fn bucket_into(
 }
 
 pub fn set_heights(regions: &mut HashMap<u8, Region>, heights: &mut HashMap<u8, ReliefLine>) {
-    for r in regions {
+    for r in regions.iter() {
         for l in r.1.relief_lines.iter() {
             match heights.get_mut(l) {
-                Some(h) => h.try_add_region(*r.0),
-                None => println!("Height not found"),
-            };
+                Some(h) => {
+                    h.try_add_region(*r.0);
+                }
+                None => println!("Warning : Height not found, you might get error at some point"),
+            }
         }
     }
+    /* started this, but it quickly became a nightmare, so as always i'm gonna do random labelling and keep that for later...
+    // enougn to not reach 0 (if reach 0 then another err would have occured somewhere else, bc it would mean +255 regions)
+    // 1280 = 5 * 256
+    let mut to_analyse = vec![(heights.iter_mut().next().expect("No relief lines").1, 1280)];
+    while !to_analyse.is_empty() {
+        let (line, h) = to_analyse.pop().expect("Rust is broken. Really.");
+        line.height = Some(h);
+        // upper region
+        for l in regions
+            .get_mut(
+                &line
+                    .down_region
+                    .expect("Error : aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+            )
+            .expect("Tired of writing error msg, something is fuched up")
+            .relief_lines
+            .iter()
+        {
+            let mut a = heights.get_mut(l).expect("msg"); // this name doesn't mean anything.
+            match a.height {
+                Some(_) => (),
+                None => {
+                    to_analyse.push((a, h + 5));
+                }
+            }
+        }
+    }
+    */// so here is the random version
+    let mut h = 0;
+    for l in heights.values_mut() {
+        h += 5;
+        l.height = Some(h);
+    }
+}
+
+pub fn compute_general_heights(
+    map: &ImageBuffer<Luma<u8>, Vec<u8>>,
+) -> ImageBuffer<Luma<f32>, Vec<f32>> {
+    let mut heightmap = ImageBuffer::new(map.width(), map.height());
+    //
+    heightmap
 }
 
 pub fn get_region_dist(
@@ -206,7 +264,6 @@ pub fn get_region_dist(
             // if pixel is border, bucket here
             let px = map.get_pixel(x, y).0[0];
             if px == col {
-                // let new_dist = x as u64 * x as u64 + y as u64 * y as u64;
                 let new_dist =
                     ((x as i64 - pos.0 as i64).pow(2) + (y as i64 - pos.1 as i64).pow(2)) as u64;
                 match dist {
